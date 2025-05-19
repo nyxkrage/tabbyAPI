@@ -1,10 +1,13 @@
 import aiofiles
 import json
 import pathlib
+from os import path
 from loguru import logger
 from pydantic import BaseModel
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set, Union, Tuple
 
+from huggingface_hub.constants import HF_HUB_CACHE
+from huggingface_hub.file_download import repo_folder_name
 
 class GenerationConfig(BaseModel):
     """
@@ -112,6 +115,8 @@ class HFModel:
     """
 
     hf_config: HuggingFaceConfig
+    repo_id: Optional[str] = None
+    revision: Optional[str] = None
     tokenizer_config: Optional[TokenizerConfig] = None
     generation_config: Optional[GenerationConfig] = None
 
@@ -147,6 +152,20 @@ class HFModel:
                 "Tokenizer config file not found in model directory, skipping."
             )
 
+        try:
+            hf_model_repo_info = get_hf_cache_model(model_directory)
+            if hf_model_repo_info is None:
+                logger.warning(
+                    "Failed to get repo_id and revision from model directory, skipping."
+                )
+            else:
+                self.repo_id, self.revision = hf_model_repo_info
+        except Exception:
+            logger.warning(
+                "Failed to get repo_id and revision from model directory, skipping."
+            )
+            pass
+
         return self
 
     def quant_method(self):
@@ -175,3 +194,41 @@ class HFModel:
 
         # Expected default
         return True
+
+def get_hf_cache_path(repo_id: str, revision: str) -> Optional[pathlib.Path]:
+    """
+    Get a HuggingFace model from the cache.
+    """
+    cache_dir = pathlib.Path(HF_HUB_CACHE).expanduser().resolve()
+    repo_dir = cache_dir / repo_folder_name(repo_id=repo_id, repo_type="model")
+    with open(repo_dir / "refs" / revision, "r") as f:
+        snapshot = f.read()
+    snapshot_dir = repo_dir / "snapshots" / snapshot
+    model_path = pathlib.Path(snapshot_dir)
+    if not model_path.exists():
+        logger.warning(
+            "Model loading does not support downloading from huggingface. "
+            "Please download the model manually using huggingface-cli. "
+        )
+        return None
+    return model_path
+
+def get_hf_cache_model(model_path: pathlib.Path) -> Optional[Tuple[str,str]]:
+    """
+    Get a HuggingFace model from the cache.
+    """
+    hf_model_dir_name = pathlib.Path(path.relpath(model_path, HF_HUB_CACHE)).parts[0]
+    hf_model_dir = pathlib.Path(HF_HUB_CACHE) / hf_model_dir_name
+    snapshot = model_path.name
+    repo_id = "/".join(hf_model_dir.name.split("--")[1:])
+    revision = None
+    for ref in hf_model_dir.glob("refs/*"):
+        with open(ref, "r") as f:
+            ref_snapshot = f.read()
+            if ref_snapshot == snapshot:
+                revision = ref.name
+                break
+
+    if revision is None:
+        return None
+    return repo_id, revision

@@ -333,8 +333,11 @@ class ExllamaV3Container(BaseModelContainer):
             model_params.prompt_template = self.prompt_template.name
             model_params.prompt_template_content = self.prompt_template.raw_template
 
+        model_id = (self.model_dir.name if self.hf_model.repo_id is None
+                    else f"{self.hf_model.repo_id}@{self.hf_model.revision}")
+
         model_card = ModelCard(
-            id=self.model_dir.name,
+            id=model_id,
             parameters=model_params,
         )
 

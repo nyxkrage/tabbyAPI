@@ -44,7 +44,9 @@ async def get_current_model_list(model_type: str = "model"):
     # Make sure the model container exists
     match model_type:
         case "model":
-            if model.container:
+            if config.model.model_dir is None:
+                current_models.append(ModelCard(id=f"{model.container.hf_model.repo_id}@{model.container.hf_model.revision}"))
+            elif model.container:
                 model_path = model.container.model_dir
         case "draft":
             if model.container:
@@ -63,7 +65,6 @@ def get_current_model():
     """Gets the current model with all parameters."""
 
     model_card = model.container.model_info()
-
     return model_card
 
 

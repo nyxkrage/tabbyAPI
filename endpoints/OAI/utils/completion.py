@@ -169,8 +169,27 @@ async def load_inline_model(model_name: str, request: Request):
 
         return
 
-    model_path = pathlib.Path(config.model.model_dir)
-    model_path = model_path / model_name
+    if config.model.model_dir is not None:
+        model_path = pathlib.Path(config.model.model_dir)
+        model_path = model_path / model_name
+    else:
+        # load it from huggingface
+        # parse model_name as repo/model@revision
+        from huggingface_hub.constants import HF_HUB_CACHE
+        from huggingface_hub.file_download import repo_folder_name
+        cache_dir = pathlib.Path(HF_HUB_CACHE).expanduser().resolve()
+        [repo_id, revision] = model_name.split("@")
+        repo_dir = cache_dir / repo_folder_name(repo_id=repo_id, repo_type="model")
+        with open(repo_dir / "refs" / revision, "r") as f:
+            snapshot = f.read()
+        snapshot_dir = repo_dir / "snapshots" / snapshot
+        model_path = pathlib.Path(snapshot_dir)
+        if not model_path.exists():
+            logger.warning(
+                "Inline model loading does not support downloading from huggingface. "
+                "Please download the model manually using huggingface-cli. "
+            )
+            return
 
     # Model path doesn't exist
     if not model_path.exists():

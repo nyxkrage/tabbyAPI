@@ -116,8 +116,8 @@ class ModelConfig(BaseConfigModel):
     """
 
     # TODO: convert this to a pathlib.path?
-    model_dir: str = Field(
-        "models",
+    model_dir: Optional[str] = Field(
+        None,
         description=(
             "Directory to look for models (default: models).\n"
             "Windows users, do NOT put this path in quotes!"

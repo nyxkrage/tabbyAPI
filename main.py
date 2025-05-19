@@ -18,6 +18,7 @@ from common.networking import is_port_in_use
 from common.optional_dependencies import dependencies
 from common.signals import signal_handler
 from common.tabby_config import config
+from common.transformers_utils import get_hf_cache_path
 from endpoints.server import start_api
 
 
@@ -50,8 +51,14 @@ async def entrypoint_async():
     # and load the model
     model_name = config.model.model_name
     if model_name:
-        model_path = pathlib.Path(config.model.model_dir)
-        model_path = model_path / model_name
+        if config.model.model_dir is not None:
+            model_path = pathlib.Path(config.model.model_dir)
+            model_path = model_path / model_name
+        else:
+            [repo_id, revision] = model_name.split("@")
+            model_path = get_hf_cache_path(repo_id, revision)
+            if model_path is None:
+                return
 
         # TODO: remove model_dump()
         await model.load_model(
