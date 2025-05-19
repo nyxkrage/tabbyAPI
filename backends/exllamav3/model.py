@@ -113,7 +113,7 @@ class ExllamaV3Container(BaseModelContainer):
         self.tokenizer = Tokenizer.from_config(self.config)
 
         # Fallback to 4096 since exl3 can't fetch from HF's config.json
-        self.max_seq_len = unwrap(kwargs.get("max_seq_len"), 4096)
+        self.max_seq_len = unwrap(kwargs.get("max_seq_len"), self.hf_model.hf_config.max_position_embeddings)
 
         # Prepare the draft model config if necessary
         draft_args = unwrap(kwargs.get("draft_model"), {})
